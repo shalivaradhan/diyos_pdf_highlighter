@@ -1,6 +1,6 @@
-# Project Name
+# Highlighter
 
-Brief description of the project and its purpose.
+This is the PDF text highlighter 
 
 ## Getting Started
 
