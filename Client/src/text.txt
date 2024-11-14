@@ -1,0 +1,104 @@
+import React, { useState } from 'react';
+import { PDFDocument, rgb } from 'pdf-lib';
+import * as pdfjsLib from 'pdfjs-dist/build/pdf';
+import 'pdfjs-dist/build/pdf.worker.entry';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = '//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js';
+
+const HighlightPDF = () => {
+    const [pdfFile, setPdfFile] = useState(null);
+    const [searchText, setSearchText] = useState('');
+    const [originalPdfBytes, setOriginalPdfBytes] = useState(null);
+
+    const handleFileChange = async (event) => {
+        const file = event.target.files[0];
+        if (file && file.type === 'application/pdf') {
+            const fileBytes = await file.arrayBuffer();
+            setOriginalPdfBytes(fileBytes);
+            setPdfFile(URL.createObjectURL(new Blob([fileBytes], { type: 'application/pdf' })));
+        } else {
+            alert('Please upload a valid PDF file.');
+        }
+    };
+
+ const highlightAndDownload = async () => {
+    if (!originalPdfBytes) {
+        alert('Please upload a PDF file.');
+        return;
+    }
+    if (!searchText) {
+        alert('Please enter text to highlight.');
+        return;
+    }
+
+    // Directly load PDF using the ArrayBuffer
+    const pdfDoc = await PDFDocument.load(originalPdfBytes);
+    const pages = pdfDoc.getPages();
+
+    // Define highlight color
+    const highlightColor = rgb(1, 1, 0); // Yellow color
+
+    const pdfjsDoc = await pdfjsLib.getDocument({ data: originalPdfBytes }).promise;
+
+    for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+        const page = pages[pageIndex];
+        const { width, height } = page.getSize();
+
+        const pdfjsPage = await pdfjsDoc.getPage(pageIndex + 1);
+        const textContent = await pdfjsPage.getTextContent();
+
+        // Loop through text items on the page to find matches
+        textContent.items.forEach((item) => {
+            if (item.str.toLowerCase().includes(searchText.toLowerCase())) {
+                const x = item.transform[4];
+                
+                // Flip Y-coordinate to align with pdf-lib (bottom-left origin)
+                const y = (height - item.transform[5] - item.height); // Correct vertical position
+                const textWidth = item.width;
+
+                // Apply a small additional offset to improve vertical positioning
+                const verticalPadding = 2;  // Adjust this value to fine-tune the vertical position
+
+                // Draw a rectangle over the matching text
+                page.drawRectangle({
+                    x: x - 2, // Horizontal padding (same as before)
+                    y: y - verticalPadding, // Adjusted Y position with additional vertical padding
+                    width: textWidth + 4, // Horizontal padding for the rectangle
+                    height: item.height + verticalPadding * 2, // Adjust height with padding
+                    color: highlightColor,
+                    opacity: 0.3,
+                });
+            }
+        });
+    }
+
+    // Save the modified PDF
+    const modifiedPdfBytes = await pdfDoc.save();
+    const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `highlighted_${pdfFile?.name || 'document.pdf'}`;
+    a.click();
+    URL.revokeObjectURL(url);
+};
+
+  
+
+    return (
+        <div>
+            <input type="file" accept="application/pdf" onChange={handleFileChange} />
+            <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Enter text to highlight"
+            />
+            <button onClick={highlightAndDownload}>Highlight & Download</button>
+            <div id="pdfContainer"></div>
+        </div>
+    );
+};
+
+export default HighlightPDF;

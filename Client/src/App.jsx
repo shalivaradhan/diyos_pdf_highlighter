@@ -1,0 +1,63 @@
+import React, { useState } from "react";
+
+const App = () => {
+  const [pdfFile, setPdfFile] = useState(null);
+  const [searchText, setSearchText] = useState("");
+
+  const handleFileChange = (e) => {
+    setPdfFile(e.target.files[0]);
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchText(e.target.value);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!pdfFile || !searchText) {
+      alert("Please upload a PDF file and enter a search term.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("pdf", pdfFile);
+    formData.append("search_text", searchText);
+
+    try {
+      const response = await fetch("http://127.0.0.1:5000/highlight", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Error in fetching highlighted PDF.");
+      }
+
+      // Get the PDF blob and create a link to download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "highlighted.pdf";
+      link.click();
+      window.URL.revokeObjectURL(url); // Clean up
+    } catch (error) {
+      alert("An error occurred while downloading the file.");
+      console.error("Error:", error);
+    }
+  };
+
+  return (
+    <div>
+      <h1>PDF Text Highlighter</h1>
+      <form onSubmit={handleSubmit}>
+        <input type="file" accept="application/pdf" onChange={handleFileChange} />
+        <input type="text" placeholder="Enter text to highlight" value={searchText} onChange={handleSearchChange} />
+        <button type="submit">Highlight & Download</button>
+      </form>
+    </div>
+  );
+};
+
+export default App;
