@@ -19,11 +19,11 @@ const App = () => {
       alert("Please upload a PDF file and enter a search term.");
       return;
     }
-
+  
     const formData = new FormData();
     formData.append("pdf", pdfFile);
     formData.append("search_text", searchText);
-
+    const fileName = pdfFile.name.slice(0, -4)
     try {
       const response = await fetch("http://127.0.0.1:5000/highlight", {
         method: "POST",
@@ -34,12 +34,11 @@ const App = () => {
         throw new Error("Error in fetching highlighted PDF.");
       }
 
-      // Get the PDF blob and create a link to download
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "highlighted.pdf";
+      link.download = `${fileName}_highlighted.pdf`;
       link.click();
       window.URL.revokeObjectURL(url); // Clean up
     } catch (error) {
