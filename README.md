@@ -15,7 +15,7 @@ Follow the instructions below to set up and run the project locally.
 
 1. Clone the repository:
    ```bash
-   git clone [<repository-url>](https://github.com/shalivaradhan/diyos_pdf_highlighter)
+   git clone https://github.com/shalivaradhan/diyos_pdf_highlighter
 
 ### Running Project 
 1. Start the Server:
