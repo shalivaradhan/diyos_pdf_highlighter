@@ -1,7 +1,9 @@
 import React, { useState } from "react";
+import './App.css'
 
 const App = () => {
   const [pdfFile, setPdfFile] = useState(null);
+  const [loading, setloading] = useState(false)
   const [searchText, setSearchText] = useState("");
 
   const handleFileChange = (e) => {
@@ -19,7 +21,7 @@ const App = () => {
       alert("Please upload a PDF file and enter a search term.");
       return;
     }
-  
+    setloading(true)
     const formData = new FormData();
     formData.append("pdf", pdfFile);
     formData.append("search_text", searchText);
@@ -44,6 +46,8 @@ const App = () => {
     } catch (error) {
       alert("An error occurred while downloading the file.");
       console.error("Error:", error);
+    } finally {
+      setloading(false)
     }
   };
 
@@ -52,11 +56,20 @@ const App = () => {
       <h1>PDF Text Highlighter</h1>
       <form onSubmit={handleSubmit}>
         <input type="file" accept="application/pdf" onChange={handleFileChange} />
-        <input type="text" placeholder="Enter text to highlight" value={searchText} onChange={handleSearchChange} />
+        <textarea type="text" placeholder="Enter text to highlight" value={searchText} onChange={handleSearchChange} />
         <button type="submit">Highlight & Download</button>
       </form>
+      {
+        loading && <div className="loaderContainer">
+          <div className="loader"></div>
+
+        </div>
+      }
+
+
     </div>
   );
 };
 
 export default App;
+
