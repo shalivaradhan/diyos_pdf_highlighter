@@ -1,67 +1,69 @@
 from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
+import re
 import fitz  # PyMuPDF
 import io
-import re
 
-app = Flask(name)
+app = Flask(__name__)
 CORS(app)
 
 @app.route("/highlight", methods=["POST"])
 def highlight_text_in_pdf():
     try:
+        # Check for required inputs
         if "pdf" not in request.files or "search_text" not in request.form:
             return jsonify({"error": "Please upload a PDF file and enter a search term."}), 400
 
         pdf_file = request.files["pdf"]
         search_text = request.form["search_text"]
+        search_texts = search_text.split("/")
 
-        search_texts =search_text.split("/")
-        # Get the original filename of the uploaded file
+        # Get the original filename
         original_filename = pdf_file.filename
 
         # Load the PDF from the uploaded file
         pdf_document = fitz.open(stream=pdf_file.read(), filetype="pdf")
 
-        for page_num in range(len(pdf_document)-1,-1,-1):
+        # Iterate through pages in reverse order for deletion safety
+        for page_num in range(len(pdf_document) - 1, -1, -1):
             page = pdf_document[page_num]
-
             page_text = page.get_text("text")
 
-            # Split text into sentences (basic splitting by '.', '!', or '?')
+            # Split text into sentences
             sentences = re.split(r'(?<=[.!?])\s+', page_text)
 
-            # Collect all sentences containing any of the search words
+            # Collect all sentences containing any search term
             sentences_to_highlight = [
                 sentence
                 for sentence in sentences
-                if any(search_text.lower() in sentence.lower() for search_text in search_texts)
+                if any(term.lower() in sentence.lower() for term in search_texts)
             ]
-            
+
             if not sentences_to_highlight:
-                pdf_document.delete_page(page_num)
+                pdf_document.delete_page(page_num)  # Delete page if no matches
             else:
-                # Highlight the sentences
+                # Highlight matching sentences
                 for sentence in sentences_to_highlight:
-                    sentence_instances = page.search_for(sentence)
+                    sentence_instances = page.search_for(sentence.strip())
 
                     if sentence_instances:
-                        highlights = [page.add_highlight_annot(inst) for inst in sentence_instances]
-                        for highlight in highlights:
+                        for inst in sentence_instances:
+                            highlight = page.add_highlight_annot(inst)
                             highlight.update()
 
-        # Save highlighted PDF to a new file in memory
+        # Save the modified PDF to a new file in memory
         output_pdf_stream = io.BytesIO()
         pdf_document.save(output_pdf_stream)
         pdf_document.close()
         output_pdf_stream.seek(0)
 
-        # Use send_file with the original filename set via download_name
-        return send_file(output_pdf_stream, as_attachment=True, attachment_filename=original_filename, mimetype="application/pdf")
-    
-    except Exception as e:
-        print("Error: {}".format(e))
-        return jsonify({"error": "An error occurred while processing the PDF file."}), 500
+        # Send the modified file
+        return send_file(output_pdf_stream, as_attachment=True, download_name=original_filename, mimetype="application/pdf")
 
-if name == "main":
-    app.run(host='0.0.0.0', port=4000)
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+
+if __name__ == "__main__":
+    app.run(port=5000)
