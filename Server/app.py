@@ -15,42 +15,33 @@ def highlight_text_in_pdf():
 
         pdf_file = request.files["pdf"]
         search_text = request.form["search_text"]
+        search_texts = search_text.lower().split("/")  # Convert to lowercase for case-insensitive search
 
-        search_texts =search_text.split("/")
-        # Get the original filename of the uploaded file
         original_filename = pdf_file.filename
-
-        # Load the PDF from the uploaded file
         pdf_document = fitz.open(stream=pdf_file.read(), filetype="pdf")
 
-        for page_num in range(len(pdf_document)-1,-1,-1):
+        # Iterate through pages in reverse order for safe deletion
+        for page_num in range(len(pdf_document) - 1, -1, -1):
             page = pdf_document[page_num]
+            page_text = page.get_text("text").lower()  # Convert page text to lowercase
 
-            page_text = page.get_text("text")
+            # Track if any term is found on this page
+            term_found = False
 
-            # Split text into sentences (basic splitting by '.', '!', or '?')
-            sentences = re.split(r'(?<=[.!?])\s+', page_text)
+            for term in search_texts:
+                instances = page.search_for(term, quads=False)  # Case-insensitive search
+                if instances:
+                    term_found = True
+                    # Highlight each found instance
+                    for inst in instances:
+                        highlight = page.add_highlight_annot(inst)
+                        highlight.update()
 
-            # Collect all sentences containing any of the search words
-            sentences_to_highlight = [
-                sentence
-                for sentence in sentences
-                if any(search_text.lower() in sentence.lower() for search_text in search_texts)
-            ]
-            
-            if not sentences_to_highlight:
+            # Delete the page if no term is found
+            if not term_found:
                 pdf_document.delete_page(page_num)
-            else:
-                # Highlight the sentences
-                for sentence in sentences_to_highlight:
-                    sentence_instances = page.search_for(sentence)
 
-                    if sentence_instances:
-                        highlights = [page.add_highlight_annot(inst) for inst in sentence_instances]
-                        for highlight in highlights:
-                            highlight.update()
-
-        # Save highlighted PDF to a new file in memory
+        # Save the modified PDF to a new file in memory
         output_pdf_stream = io.BytesIO()
         pdf_document.save(output_pdf_stream)
         pdf_document.close()
